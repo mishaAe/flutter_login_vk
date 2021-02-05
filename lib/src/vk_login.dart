@@ -13,6 +13,13 @@ class VKLogin {
   static const _methodGetUserProfile = "getUserProfile";
   static const _methodGetSdkVersion = "getSdkVersion";
 
+  static const _methodShareVk = "shareVk";
+  static const _argShareVkMessage = "message";
+  static const _argShareVkPhoto = "photo";
+
+  static const _methodJoinGroup = "joinGroup";
+  static const _argJoinGroupGroupId = "groupId";
+
   // TODO: rename to `permissions`?
   static const _argLogInScope = "scope";
 
@@ -38,11 +45,11 @@ class VKLogin {
   /// If user is now logged in, than returns `null`.
   Future<VKAccessToken> get accessToken async {
     assert(_initialized,
-        'SDK is not initialized. You should call initSdk() first');
+    'SDK is not initialized. You should call initSdk() first');
     if (!_initialized) return null;
 
     final Map<dynamic, dynamic> tokenResult =
-        await _channel.invokeMethod(_methodGetAccessToken);
+    await _channel.invokeMethod(_methodGetAccessToken);
 
     return tokenResult != null
         ? VKAccessToken.fromMap(tokenResult.cast<String, dynamic>())
@@ -72,8 +79,8 @@ class VKLogin {
   /// but doesn't have all of this permissions - he will be logged out.
   Future<Result> initSdk(String appId,
       {String apiVersion,
-      List<VKScope> scope,
-      List<String> customScope}) async {
+        List<VKScope> scope,
+        List<String> customScope}) async {
     assert(appId != null);
 
     final scopeArg = _getScope(scope: scope, customScope: customScope);
@@ -118,7 +125,7 @@ class VKLogin {
 
     try {
       final Map<dynamic, dynamic> result =
-          await _channel.invokeMethod(_methodGetUserProfile);
+      await _channel.invokeMethod(_methodGetUserProfile);
 
       if (debug) _log('User profile: $result');
 
@@ -165,7 +172,7 @@ class VKLogin {
     assert(scope != null);
 
     assert(_initialized,
-        'SDK is not initialized. You should call initSdk() first');
+    'SDK is not initialized. You should call initSdk() first');
     if (!_initialized) throw Exception("SDK is not initialized.");
 
     final scopeArg = _getScope(scope: scope, customScope: customScope);
@@ -174,7 +181,7 @@ class VKLogin {
 
     try {
       final Map<dynamic, dynamic> res =
-          await _channel.invokeMethod(_methodLogIn, {_argLogInScope: scopeArg});
+      await _channel.invokeMethod(_methodLogIn, {_argLogInScope: scopeArg});
 
       if (res == null) {
         return Result.error("Invalid null result");
@@ -189,7 +196,7 @@ class VKLogin {
 
   Future<void> logOut() async {
     assert(_initialized,
-        'SDK is not initialized. You should call initSdk() first');
+    'SDK is not initialized. You should call initSdk() first');
     if (!_initialized) return;
 
     if (debug) _log('Log Out');
@@ -207,6 +214,52 @@ class VKLogin {
       return List.from(customScope);
     } else {
       return null;
+    }
+  }
+
+  Future<Result<String>> shareVk(String message, String photo) async {
+    assert(_initialized,
+    'SDK is not initialized. You should call initSdk() first');
+    if (!_initialized) throw Exception("SDK is not initialized.");
+
+    if (debug) _log('Share VK');
+    try{
+      final String result =
+      await _channel.invokeMethod(_methodShareVk, {
+        _argShareVkMessage: message,
+        _argShareVkPhoto: photo,
+      });
+
+      if (debug) _log('Post Id: $result');
+
+      return Result.value(result != null
+          ? result
+          : null);
+
+    } on PlatformException catch (e) {
+      if (debug) _log('Share Vk error: $e');
+    }
+
+  }
+
+  Future<Result<String>> joinGroup(String groupId) async {
+    assert(_initialized,
+    'SDK is not initialized. You should call initSdk() first');
+    if (!_initialized) throw Exception("SDK is not initialized.");
+    if (debug) _log('Join Group');
+
+    try{
+      final String result = await _channel.invokeMethod(_methodJoinGroup, {
+        _argJoinGroupGroupId : groupId,
+      });
+      if (debug) _log('Join group result: $result');
+
+      return Result.value(result != null
+          ? result
+          : null);
+    } on PlatformException catch (e) {
+      if (debug) _log('Join group error: $e');
+      return Result.error(e);
     }
   }
 

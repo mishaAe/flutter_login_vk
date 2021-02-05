@@ -12,8 +12,11 @@ import com.vk.sdk.api.VKError;
 import com.vk.sdk.api.VKParameters;
 import com.vk.sdk.api.VKRequest;
 import com.vk.sdk.api.VKResponse;
+import com.vk.sdk.api.model.VKApiPhoto;
 import com.vk.sdk.api.model.VKApiUser;
 import com.vk.sdk.api.model.VKApiUserFull;
+import com.vk.sdk.api.model.VKAttachments;
+import com.vk.sdk.api.model.VKWallPostResult;
 
 import java.util.HashMap;
 import java.util.List;
@@ -33,6 +36,11 @@ public class MethodCallHandler implements MethodChannel.MethodCallHandler {
     private final static String _SCOPE_INIT_ARG = "scope";
     private final static String _APP_ID_INIT_ARG = "appId";
     private final static String _API_VERSION_INIT_ARG = "apiVersion";
+    private final static String _SHARE_VK_METHOD = "shareVk";
+    private final static String _SHARE_VK_MESSAGE_ARG = "message";
+    private final static String _SHARE_VK_PHOTO_ARG = "photo";
+    private final static String _JOIN_GROUP_METHOD = "joinGroup";
+    private final static String _JOIN_GROUP_ARG = "groupId";
 
 
     private final LoginCallback _loginCallback;
@@ -87,6 +95,15 @@ public class MethodCallHandler implements MethodChannel.MethodCallHandler {
                         error(FlutterError.invalidArgs("Arguments is invalid", null), r);
                     }
 
+                    break;
+                case _SHARE_VK_METHOD:
+                    final String message = call.argument(_SHARE_VK_MESSAGE_ARG);
+                    final String photo = call.argument(_SHARE_VK_PHOTO_ARG);
+                    shareVk(message, photo, r);
+                    break;
+                case _JOIN_GROUP_METHOD:
+                    final String groupId = call.argument(_JOIN_GROUP_ARG);
+                    joinGroup(groupId, r);
                     break;
                 default:
                     r.notImplemented();
@@ -167,5 +184,60 @@ public class MethodCallHandler implements MethodChannel.MethodCallHandler {
 
     private void error(FlutterError error, Result r) {
         r.error(error.code, error.message, error.details);
+    }
+
+
+    private void shareVk(String message, String photo, final Result r){
+        final VKAccessToken token = VKAccessToken.currentToken();
+        if(token != null){
+            //TODO: separate setup method
+            VKParameters parameters = new VKParameters();
+            VKAttachments attachments = new VKAttachments();
+
+            VKApiPhoto photoAttach = new VKApiPhoto();
+
+            photoAttach.id = Integer.parseInt(photo.split("_")[1]);//456239109;
+            photoAttach.owner_id = Integer.parseInt(photo.split("_")[0].split("-")[1]) * -1; //-381524;
+            //photoAttach.album_id = 40826181;
+
+            attachments.add(photoAttach);
+            parameters.put(VKApiConst.ATTACHMENTS, attachments);
+            parameters.put(VKApiConst.MESSAGE, message);
+
+            VKRequest request = VKApi.wall().post(parameters);
+            request.setModelClass(VKWallPostResult.class);
+
+            request.executeWithListener(new VKRequest.VKRequestListener(){
+                @Override
+                public void onComplete(VKResponse response) {
+                    final VKWallPostResult postResult = (VKWallPostResult) response.parsedModel;
+                    result(postResult.toString(), r);
+                }
+
+                @Override
+                public void onError(VKError error) {
+                    error(FlutterError.apiError("Wall post error: " + error.errorMessage, error), r);
+                }
+            });
+        }
+    }
+
+    private void joinGroup(String groupId, final Result r){
+        VKParameters parameters = new VKParameters();
+        parameters.put(VKApiConst.GROUP_ID, groupId);
+        VKRequest request = VKApi.groups().join(parameters);
+
+        request.executeWithListener(new VKRequest.VKRequestListener(){
+            @Override
+            public void onComplete(VKResponse response) {
+                result(response.json.toString(), r);
+            }
+
+            @Override
+            public void onError(VKError error) {
+                error(FlutterError.apiError("Join group error: " + error.errorMessage, error), r);
+            }
+        });
+
     }
 }

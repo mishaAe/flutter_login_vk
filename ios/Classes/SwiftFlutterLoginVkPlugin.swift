@@ -4,7 +4,7 @@ import VK_ios_sdk
 
 /// Plugin methods.
 enum PluginMethod: String {
-    case initSdk, logIn, logOut, getAccessToken, getUserProfile, getSdkVersion
+    case initSdk, logIn, logOut, getAccessToken, getUserProfile, getSdkVersion, shareVk, joinGroup
 }
 
 /// Arguments for method `PluginMethod.initSdk`
@@ -15,6 +15,16 @@ enum InitSdkArg: String {
 /// Arguments for method `PluginMethod.logIn`
 enum LogInArg: String {
     case scope
+}
+
+/// Arguments for method `PluginMethod.shareVk`
+enum ShareVkArg: String {
+    case message, photo
+}
+
+/// Arguments for method `PluginMethod.joinGroup`
+enum JoinGroupArg: String {
+    case groupId
 }
 
 public class SwiftFlutterLoginVkPlugin: NSObject, FlutterPlugin {
@@ -69,6 +79,26 @@ public class SwiftFlutterLoginVkPlugin: NSObject, FlutterPlugin {
             getUserProfile(result: result)
         case .getSdkVersion:
             getSdkVersion(result: result)
+        case .shareVk:
+            guard
+                let args = call.arguments as? [String: Any],
+                let message = args[ShareVkArg.message.rawValue] as? String
+                else {
+                    result(FlutterError.invalidArgs("Arguments is invalid"))
+                    return
+            }
+            let photo = args[ShareVkArg.photo.rawValue] as? String
+            shareVk(result: result, message: message, photo: photo)
+        case .joinGroup:
+            guard
+                let args = call.arguments as? [String: Any],
+                let groupId = args[JoinGroupArg.groupId.rawValue] as? String
+            else {
+                result(FlutterError.invalidArgs("Arguments is invalid"))
+                return
+            }
+            joinGroup(result: result, groupId: groupId)
+        
         }
     }
     
@@ -177,6 +207,64 @@ public class SwiftFlutterLoginVkPlugin: NSObject, FlutterPlugin {
     
     private func getSdkVersion(result: @escaping FlutterResult) {
         result(VK_SDK_VERSION)
+    }
+    
+    //TODO: pass message and photo
+    private func shareVk(result: @escaping FlutterResult, message: String, photo: String?) {
+        
+        //let photo : VKPhoto = VKPhoto(id: 456239109, owner_id: -381524, album_id: 40826181)
+        
+        let params : [String: Any] = [
+            VK_API_MESSAGE : message,
+            VK_API_ATTACHMENTS : [photo],
+            
+        ]
+        
+        guard let request = VKApi.wall()?.post(params) else {
+                   result(FlutterError.apiUnavailable("Can't post data"))
+                   return
+               }
+        
+        request.execute(resultBlock: { response in
+            guard
+                let res = response?.responseString else {
+                    result(FlutterError.invalidResult("Can't parse post response"))
+                    return
+            }
+            
+            result(res)
+        }, errorBlock: { error in
+            // TODO: pass error data as details?
+            result(FlutterError.invalidResult(
+                "Share Vk Error: \(String(describing: error))"))
+        })
+
+    }
+    
+    //TODO: pass groupId
+    private func joinGroup(result: @escaping FlutterResult, groupId : String){
+                
+        let request: VKRequest = VKRequest(method: "groups.join", parameters: [VK_API_GROUP_ID: groupId]
+        )
+        request.parseModel = false;
+        
+        request.execute(resultBlock: { response in
+            guard
+                let res = response?.responseString
+                else {
+                    result(FlutterError.invalidResult("Can't parse join group response"))
+                    return
+            }
+            
+            let data = res
+            result(data)
+        }, errorBlock: { error in
+            // TODO: pass error data as details?
+            result(FlutterError.invalidResult(
+                "Join group error: \(String(describing: error))"))
+        })
+        
+        
     }
 }
 
